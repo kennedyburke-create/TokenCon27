@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TokenCon Game Companion</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --text: #111827;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      padding-bottom: 70px; /* Space for sticky bottom navigation */
+    }
+
+    .app-header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 16px;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .app-header h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    /* Views */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* Forms & Inputs */
+    .search-container { position: relative; margin-bottom: 16px; }
+    label { font-weight: 600; display: block; margin-bottom: 6px; margin-top: 14px; color: #374151; }
+    
+    input[type="text"], select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      background: white;
+    }
+    input[type="text"]:focus, select:focus { border-color: var(--primary); }
+
+    .dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 30;
+      display: none;
+    }
+    .dropdown-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; }
+    .dropdown-item:hover { background-color: #eff6ff; color: var(--primary); }
+
+    .selected-box {
+      background-color: #ecfdf5;
+      border: 1px solid #10b981;
+      color: #065f46;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .checkbox-box {
+      background-color: #f0fdf4;
+      border: 1.5px solid #86efac;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 18px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+    }
+    .checkbox-box input { width: 22px; height: 22px; cursor: pointer; accent-color: #16a34a; }
+    .checkbox-box label { margin: 0; cursor: pointer; font-weight: 600; color: #15803d; }
+
+    .btn-primary {
+      width: 100%;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    .btn-primary:hover { background-color: var(--primary-hover); }
+    .btn-primary:disabled { background-color: #9ca3af; cursor: not-allowed; }
+
+    /* Message Banners */
+    .message {
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 16px;
+      display: none;
+      font-weight: 600;
+      text-align: center;
+    }
+    .success { background-color: #d1fae5; color: #065f46; }
+    .error { background-color: #fee2e2; color: #991b1b; }
+
+    /* Leaderboard Component Styling */
+    .tab-group {
+      display: flex;
+      gap: 6px;
+      background-color: #e5e7eb;
+      padding: 4px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px 4px;
+      border: none;
+      background: none;
+      font-weight: 600;
+      font-size: 0.8rem;
+      color: #4b5563;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .tab-btn.active {
+      background: white;
+      color: var(--primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .leaderboard-list { list-style: none; padding: 0; margin: 0; }
+    .game-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 12px;
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .rank { font-weight: 800; font-size: 1.1rem; color: #9ca3af; width: 30px; }
+    .rank-1 { color: #eab308; }
+    .rank-2 { color: #94a3b8; }
+    .rank-3 { color: #d97706; }
+
+    .game-info { flex: 1; margin-left: 6px; }
+    .game-title { font-weight: 700; color: #1f2937; font-size: 0.95rem; }
+    .game-sub { font-size: 0.78rem; color: #6b7280; margin-top: 2px; }
+
+    .stat-badge {
+      background-color: #eff6ff;
+      color: var(--primary-hover);
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: white;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 100;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      height: 100%;
+      color: #6b7280;
+      text-decoration: none;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    .nav-item.active { color: var(--primary); }
+    .nav-icon { font-size: 1.25rem; margin-bottom: 2px; }
+  </style>
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <h1>🎲 TokenCon Companion</h1>
+  </header>
+
+  <main class="container">
+
+    <!-- VIEW 1: RATING FORM -->
+    <section id="viewRate" class="view active">
+      <h2>Rate a Game</h2>
+      
+      <div class="search-container">
+        <label for="gameInput">Search Convention Library:</label>
+        <input type="text" id="gameInput" placeholder="Type a title (e.g. Catan, Wingspan)..." autocomplete="off">
+        <div id="resultsDropdown" class="dropdown"></div>
+      </div>
+
+      <div id="selectedBanner" class="selected-box">
+        Rating: <strong id="selectedTitle">None</strong>
+      </div>
+
+      <div id="ratingForm" style="display: none;">
+        <label for="score">Overall Rating (1–5 Stars):</label>
+        <select id="score">
+          <option value="5" selected>5 ★★★★★ - Outstanding / Must Play</option>
+          <option value="4">4 ★★★★☆ - Great / Really Enjoyed</option>
+          <option value="3">3 ★★★☆☆ - Good / Solid Game</option>
+          <option value="2">2 ★★☆☆☆ - Mediocre / Flawed</option>
+          <option value="1">1 ★☆☆☆☆ - Bad / Disliked</option>
+        </select>
+
+        <label for="wouldBuy">Purchase / Replay Desire (1–5):</label>
+        <select id="wouldBuy">
+          <option value="5" selected>5 - Buying immediately at Dealer Hall!</option>
+          <option value="4">4 - High interest in buying</option>
+          <option value="3">3 - Would play again if someone else owns it</option>
+          <option value="2">2 - Low interest</option>
+          <option value="1">1 - Would not play again</option>
+        </select>
+
+        <div class="checkbox-box">
+          <input type="checkbox" id="wishlistToggle">
+          <label for="wishlistToggle">❤️ Add to my Personal Wishlist</label>
+        </div>
+
+        <label for="setupDif">Setup Difficulty (1–5):</label>
+        <select id="setupDif">
+          <option value="1">1 - Fast & Easy (&lt; 2 mins)</option>
+          <option value="2" selected>2 - Minor Setup (2–5 mins)</option>
+          <option value="3">3 - Moderate (5–15 mins)</option>
+          <option value="4">4 - Complex (&gt; 15 mins)</option>
+          <option value="5">5 - Extreme / Table Hunch</option>
+        </select>
+
+        <label for="playDif">Rules / Play Complexity (1–5):</label>
+        <select id="playDif">
+          <option value="1">1 - Light (Gateway / Party)</option>
+          <option value="2" selected>2 - Medium Light (Family Strategy)</option>
+          <option value="3">3 - Medium Heavy (Euro / Strategy)</option>
+          <option value="4">4 - Heavy (Complex Strategy)</option>
+          <option value="5">5 - Very Heavy (Rules Lawyer Required)</option>
+        </select>
+
+        <button id="submitBtn" class="btn-primary">Submit Rating</button>
+      </div>
+
+      <div id="msgBox" class="message"></div>
+    </section>
+
+    <!-- VIEW 2: LEADERBOARD -->
+    <section id="viewLeaderboard" class="view">
+      <h2>Convention Stats</h2>
+
+      <div class="tab-group">
+        <button class="tab-btn active" id="tabTopRated">⭐ Top Rated</button>
+        <button class="tab-btn" id="tabWishlisted">❤️ Wishlisted</button>
+        <button class="tab-btn" id="tabMostRated">🔥 Most Played</button>
+      </div>
+
+      <ul id="leaderboardList" class="leaderboard-list">
+        <li style="text-align:center; padding: 20px; color:#9ca3af;">Loading stats...</li>
+      </ul>
+    </section>
+
+    <!-- VIEW 3: MY WISHLIST -->
+    <section id="viewWishlist" class="view">
+      <h2>My Wishlist & Log</h2>
+      <p style="color: #6b7280; font-size: 0.9rem;">Games you have saved during TokenCon:</p>
+
+      <ul id="myWishlistList" class="leaderboard-list">
+        <li style="text-align:center; padding: 20px; color:#9ca3af;">Loading your saved games...</li>
+      </ul>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-target="viewRate">
+      <span class="nav-icon">📝</span>
+      <span>Rate</span>
+    </button>
+    <button class="nav-item" data-target="viewLeaderboard">
+      <span class="nav-icon">🏆</span>
+      <span>Leaderboard</span>
+    </button>
+    <button class="nav-item" data-target="viewWishlist">
+      <span class="nav-icon">❤️</span>
+      <span>My List</span>
+    </button>
+  </nav>
+
+<script>
+  const SUPABASE_URL = 'https://bvpyxrwwkpaodajuazlf.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_57eYCu9yiI4KLXhxZjuh4A_PmBg6juA';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // User Device Token
+  let userId = localStorage.getItem('tokencon_user_id');
+  if (!userId) {
+    userId = crypto.randomUUID ? crypto.randomUUID() : 'usr_' + Math.random().toString(36).substring(2, 11);
+    localStorage.setItem('tokencon_user_id', userId);
+  }
+
+  // View Navigation
+  const navItems = document.querySelectorAll('.nav-item');
+  const views = document.querySelectorAll('.view');
+
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const targetView = item.getAttribute('data-target');
+
+      navItems.forEach(nav => nav.classList.remove('active'));
+      views.forEach(view => view.classList.remove('active'));
+
+      item.classList.add('active');
+      document.getElementById(targetView).classList.add('active');
+
+      // Trigger automatic refreshes when entering specific views
+      if (targetView === 'viewLeaderboard') loadLeaderboard();
+      if (targetView === 'viewWishlist') loadMyWishlist();
+    });
+  });
+
+  // Search & Form Logic
+  const gameInput = document.getElementById('gameInput');
+  const dropdown = document.getElementById('resultsDropdown');
+  const selectedBanner = document.getElementById('selectedBanner');
+  const selectedTitle = document.getElementById('selectedTitle');
+  const ratingForm = document.getElementById('ratingForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const msgBox = document.getElementById('msgBox');
+
+  let currentSelectedGameId = null;
+
+  gameInput.addEventListener('input', async (e) => {
+    const searchTerm = e.target.value.trim();
+    if (searchTerm.length < 2) {
+      dropdown.style.display = 'none';
+      return;
+    }
+
+    const { data: games, error } = await supabaseClient
+      .from('games')
+      .select('id, title')
+      .ilike('title', `%${searchTerm}%`)
+      .limit(6);
+
+    if (error) return;
+
+    dropdown.innerHTML = '';
+    if (games.length === 0) {
+      dropdown.innerHTML = '<div class="dropdown-item" style="color:#9ca3af;">No games found</div>';
+    } else {
+      games.forEach(game => {
+        const item = document.createElement('div');
+        item.className = 'dropdown-item';
+        item.textContent = game.title;
+        item.addEventListener('click', () => {
+          currentSelectedGameId = game.id;
+          selectedTitle.textContent = game.title;
+          selectedBanner.style.display = 'block';
+          ratingForm.style.display = 'block';
+          gameInput.value = game.title;
+          dropdown.style.display = 'none';
+          msgBox.style.display = 'none';
+        });
+        dropdown.appendChild(item);
+      });
+    }
+    dropdown.style.display = 'block';
+  });
+
+  submitBtn.addEventListener('click', async () => {
+    if (!currentSelectedGameId) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+
+    const payload = {
+      game_id: currentSelectedGameId,
+      score: parseInt(document.getElementById('score').value),
+      would_buy: parseInt(document.getElementById('wouldBuy').value),
+      wishlist: document.getElementById('wishlistToggle').checked,
+      setup_dif: parseInt(document.getElementById('setupDif').value),
+      play_dif: parseInt(document.getElementById('playDif').value),
+      user_id: userId,
+      review_date: new Date().toISOString()
+    };
+
+    const { error } = await supabaseClient
+      .from('ratings')
+      .insert([payload]);
+
+    if (error) {
+      console.error(error);
+      msgBox.className = 'message error';
+      msgBox.textContent = 'Error: ' + error.message;
+    } else {
+      msgBox.className = 'message success';
+      msgBox.textContent = 'Rating & Wishlist saved!';
+      
+      gameInput.value = '';
+      currentSelectedGameId = null;
+      document.getElementById('wishlistToggle').checked = false;
+      selectedBanner.style.display = 'none';
+      ratingForm.style.display = 'none';
+    }
+
+    msgBox.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Rating';
+  });
+
+  // Leaderboard Logic
+  let currentLeaderboardTab = 'top_rated';
+
+  async function loadLeaderboard() {
+    const listEl = document.getElementById('leaderboardList');
+    listEl.innerHTML = '<li style="text-align:center; padding: 20px; color:#9ca3af;">Calculating stats...</li>';
+
+    const { data: ratings, error } = await supabaseClient
+      .from('ratings')
+      .select('score, wishlist, games(id, title)');
+
+    if (error) {
+      listEl.innerHTML = '<li style="color:red; text-align:center;">Failed to load stats.</li>';
+      return;
+    }
+
+    const statsMap = {};
+    ratings.forEach(r => {
+      if (!r.games) return;
+      const gId = r.games.id;
+      if (!statsMap[gId]) {
+        statsMap[gId] = { title: r.games.title, totalRatings: 0, sumScore: 0, wishlistCount: 0 };
+      }
+      statsMap[gId].totalRatings += 1;
+      statsMap[gId].sumScore += r.score || 0;
+      if (r.wishlist) statsMap[gId].wishlistCount += 1;
+    });
+
+    let gamesArray = Object.values(statsMap).map(g => ({
+      title: g.title,
+      totalRatings: g.totalRatings,
+      avgScore: (g.sumScore / g.totalRatings).toFixed(1),
+      wishlistCount: g.wishlistCount
+    }));
+
+    if (currentLeaderboardTab === 'top_rated') {
+      gamesArray.sort((a, b) => b.avgScore - a.avgScore || b.totalRatings - a.totalRatings);
+    } else if (currentLeaderboardTab === 'wishlisted') {
+      gamesArray.sort((a, b) => b.wishlistCount - a.wishlistCount || b.avgScore - a.avgScore);
+    } else if (currentLeaderboardTab === 'most_rated') {
+      gamesArray.sort((a, b) => b.totalRatings - a.totalRatings || b.avgScore - a.avgScore);
+    }
+
+    const top10 = gamesArray.slice(0, 10);
+    listEl.innerHTML = '';
+    
+    if (top10.length === 0) {
+      listEl.innerHTML = '<li style="text-align:center; padding: 20px; color:#9ca3af;">No ratings logged yet!</li>';
+      return;
+    }
+
+    top10.forEach((game, index) => {
+      const rankNum = index + 1;
+      let badgeText = '';
+      let subText = '';
+
+      if (currentLeaderboardTab === 'top_rated') {
+        badgeText = `⭐ ${game.avgScore} / 5`;
+        subText = `${game.totalRatings} play rating${game.totalRatings > 1 ? 's' : ''}`;
+      } else if (currentLeaderboardTab === 'wishlisted') {
+        badgeText = `❤️ ${game.wishlistCount} saved`;
+        subText = `Avg Score: ${game.avgScore} ★`;
+      } else if (currentLeaderboardTab === 'most_rated') {
+        badgeText = `🔥 ${game.totalRatings} plays`;
+        subText = `Avg Score: ${game.avgScore} ★`;
+      }
+
+      const li = document.createElement('li');
+      li.className = 'game-card';
+      li.innerHTML = `
+        <div class="rank rank-${rankNum}">#${rankNum}</div>
+        <div class="game-info">
+          <div class="game-title">${game.title}</div>
+          <div class="game-sub">${subText}</div>
+        </div>
+        <div class="stat-badge">${badgeText}</div>
+      `;
+      listEl.appendChild(li);
+    });
+  }
+
+  // Leaderboard Tab Controls
+  document.getElementById('tabTopRated').addEventListener('click', (e) => setLeaderboardTab(e.target, 'top_rated'));
+  document.getElementById('tabWishlisted').addEventListener('click', (e) => setLeaderboardTab(e.target, 'wishlisted'));
+  document.getElementById('tabMostRated').addEventListener('click', (e) => setLeaderboardTab(e.target, 'most_rated'));
+
+  function setLeaderboardTab(btn, tabName) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentLeaderboardTab = tabName;
+    loadLeaderboard();
+  }
+
+  // Personal Wishlist Logic
+  async function loadMyWishlist() {
+    const listEl = document.getElementById('myWishlistList');
+    listEl.innerHTML = '<li style="text-align:center; padding: 20px; color:#9ca3af;">Fetching your saved games...</li>';
+
+    const { data: userRatings, error } = await supabaseClient
+      .from('ratings')
+      .select('score, would_buy, wishlist, review_date, games(title)')
+      .eq('user_id', userId)
+      .order('review_date', { ascending: false });
+
+    if (error) {
+      console.error(error);
+      listEl.innerHTML = '<li style="color:red; text-align:center;">Failed to load your wishlist.</li>';
+      return;
+    }
+
+    listEl.innerHTML = '';
+    if (!userRatings || userRatings.length === 0) {
+      listEl.innerHTML = '<li style="text-align:center; padding: 20px; color:#9ca3af;">You haven\'t rated or wishlisted any games yet!</li>';
+      return;
+    }
+
+    userRatings.forEach(r => {
+      if (!r.games) return;
+      const li = document.createElement('li');
+      li.className = 'game-card';
+      li.innerHTML = `
+        <div class="game-info">
+          <div class="game-title">${r.games.title}</div>
+          <div class="game-sub">Rated: ${r.score}★ | Replay: ${r.would_buy}/5</div>
+        </div>
+        <div>${r.wishlist ? '<span class="stat-badge" style="background:#fef2f2; color:#dc2626;">❤️ Wishlisted</span>' : ''}</div>
+      `;
+      listEl.appendChild(li);
+    });
+  }
+
+  // Hide search dropdown on outside clicks
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.search-container')) {
+      dropdown.style.display = 'none';
+    }
+  });
+</script>
+</body>
+</html>
