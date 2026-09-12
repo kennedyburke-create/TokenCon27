@@ -385,7 +385,7 @@
 
   let currentSelectedGameId = null;
 
-  // Live Game Search with "Add Missing Game" Fallback
+// Live Game Search with Prototype (Y/N) Toggle
   gameInput.addEventListener('input', async (e) => {
     const searchTerm = e.target.value.trim();
     if (searchTerm.length < 2) {
@@ -393,10 +393,9 @@
       return;
     }
 
-    // Query Supabase for matching titles
     const { data: games, error } = await supabaseClient
       .from('games')
-      .select('id, title')
+      .select('id, title, is_prototype')
       .ilike('title', `%${searchTerm}%`)
       .limit(6);
 
@@ -405,7 +404,7 @@
     dropdown.innerHTML = '';
 
     if (games.length === 0) {
-      // Option to add the missing game dynamically!
+      // Dynamic creation option
       const addItem = document.createElement('div');
       addItem.className = 'dropdown-item';
       addItem.style.fontWeight = 'bold';
@@ -413,21 +412,28 @@
       addItem.innerHTML = `➕ Add "${searchTerm}" as a new game`;
 
       addItem.addEventListener('click', async () => {
-        // Insert missing game into Supabase games table
+        // Ask Y/N if it's a prototype
+        const isProto = confirm(`Is "${searchTerm}" an unpublished prototype or playtest game?\n\nClick OK for YES (Prototype)\nClick Cancel for NO (Published Game)`);
+
+        // Insert new game row into Supabase
         const { data: newGame, error: insertError } = await supabaseClient
           .from('games')
-          .insert([{ title: searchTerm, is_custom: true }])
+          .insert([{ 
+            title: searchTerm, 
+            is_custom: true,
+            is_prototype: isProto 
+          }])
           .select()
           .single();
 
         if (insertError) {
-          alert('Error adding new game: ' + insertError.message);
+          alert('Error adding game: ' + insertError.message);
           return;
         }
 
-        // Auto-select the newly created game!
+        // Auto-select the newly created game
         currentSelectedGameId = newGame.id;
-        selectedTitle.textContent = newGame.title;
+        selectedTitle.textContent = newGame.title + (isProto ? ' (Prototype)' : '');
         selectedBanner.style.display = 'block';
         ratingForm.style.display = 'block';
         gameInput.value = newGame.title;
@@ -440,10 +446,11 @@
       games.forEach(game => {
         const item = document.createElement('div');
         item.className = 'dropdown-item';
-        item.textContent = game.title;
+        item.textContent = game.title + (game.is_prototype ? ' 🛠️ (Prototype)' : '');
+        
         item.addEventListener('click', () => {
           currentSelectedGameId = game.id;
-          selectedTitle.textContent = game.title;
+          selectedTitle.textContent = game.title + (game.is_prototype ? ' (Prototype)' : '');
           selectedBanner.style.display = 'block';
           ratingForm.style.display = 'block';
           gameInput.value = game.title;
