@@ -145,7 +145,7 @@ textarea { resize: vertical; min-height: 80px; }
 .tab-group {
   display: flex;
   gap: 6px;
-  background-color: #e5e7eb;
+  background-color: #291f2b;
   padding: 4px;
   border-radius: 8px;
   margin-bottom: 16px;
