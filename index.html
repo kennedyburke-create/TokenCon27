@@ -385,6 +385,7 @@
 
   let currentSelectedGameId = null;
 
+  // Live Game Search with "Add Missing Game" Fallback
   gameInput.addEventListener('input', async (e) => {
     const searchTerm = e.target.value.trim();
     if (searchTerm.length < 2) {
@@ -392,6 +393,7 @@
       return;
     }
 
+    // Query Supabase for matching titles
     const { data: games, error } = await supabaseClient
       .from('games')
       .select('id, title')
@@ -401,8 +403,39 @@
     if (error) return;
 
     dropdown.innerHTML = '';
+
     if (games.length === 0) {
-      dropdown.innerHTML = '<div class="dropdown-item" style="color:#9ca3af;">No games found</div>';
+      // Option to add the missing game dynamically!
+      const addItem = document.createElement('div');
+      addItem.className = 'dropdown-item';
+      addItem.style.fontWeight = 'bold';
+      addItem.style.color = '#2563eb';
+      addItem.innerHTML = `➕ Add "${searchTerm}" as a new game`;
+
+      addItem.addEventListener('click', async () => {
+        // Insert missing game into Supabase games table
+        const { data: newGame, error: insertError } = await supabaseClient
+          .from('games')
+          .insert([{ title: searchTerm, is_custom: true }])
+          .select()
+          .single();
+
+        if (insertError) {
+          alert('Error adding new game: ' + insertError.message);
+          return;
+        }
+
+        // Auto-select the newly created game!
+        currentSelectedGameId = newGame.id;
+        selectedTitle.textContent = newGame.title;
+        selectedBanner.style.display = 'block';
+        ratingForm.style.display = 'block';
+        gameInput.value = newGame.title;
+        dropdown.style.display = 'none';
+        msgBox.style.display = 'none';
+      });
+
+      dropdown.appendChild(addItem);
     } else {
       games.forEach(game => {
         const item = document.createElement('div');
@@ -420,6 +453,7 @@
         dropdown.appendChild(item);
       });
     }
+
     dropdown.style.display = 'block';
   });
 
