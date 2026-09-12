@@ -179,7 +179,7 @@ textarea { resize: vertical; min-height: 80px; }
   margin-bottom: 8px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
-.rank { font-weight: 800; font-size: 1.1rem; color: #9ca3af; width: 30px; }
+.rank { font-weight: 800; font-size: 1.1rem; color: #b48ebf; width: 30px; }
 .rank-1 { color: #eab308; }
 .rank-2 { color: #94a3b8; }
 .rank-3 { color: #d97706; }
